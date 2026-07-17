@@ -1,145 +1,132 @@
-import React from "react";
-import { useStore } from "../context/StoreContext";
-import { 
-  Sparkles, Phone, Mail, MapPin, Clock, ShieldCheck, 
-  Truck, CornerDownLeft, CreditCard, MessageSquare 
-} from "lucide-react";
+import React, { useState } from 'react';
+import { ShieldCheck, Truck, RefreshCw, Sparkles, Send, Mail, Phone, MapPin, CheckCircle } from 'lucide-react';
 
-export const Footer: React.FC = () => {
-  const { setPage } = useStore();
+export default function Footer() {
+  const [email, setEmail] = useState('');
+  const [isSubscribed, setIsSubscribed] = useState(false);
+
+  const handleSubscribe = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email.trim() && email.includes('@')) {
+      setIsSubscribed(true);
+      setEmail('');
+      setTimeout(() => setIsSubscribed(false), 5000);
+    }
+  };
 
   return (
-    <footer id="app-footer" className="bg-neutral-900 text-neutral-400 mt-16 transition-colors border-t border-neutral-800">
-      
-      {/* Brand values / Trust markers section */}
-      <div className="border-b border-neutral-800 py-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-400 shrink-0">
-              <Truck className="w-6 h-6" />
+    <footer className="bg-brand-dark text-gray-300 mt-16 border-t-4 border-brand-green" id="main-footer">
+      {/* Quality Guarantees Banner */}
+      <div className="bg-[#1a1a1a] border-b border-gray-800 py-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+          <div className="flex flex-col items-center p-4">
+            <div className="bg-brand-green-light/10 p-3 rounded-full mb-3">
+              <Truck className="w-8 h-8 text-brand-green" />
             </div>
-            <div>
-              <h4 className="text-white text-sm font-bold">Express 30 Mins Delivery</h4>
-              <p className="text-xs text-neutral-500 mt-1">Superfast delivery straight to your door in Bhopal</p>
-            </div>
+            <h4 className="text-white font-bold text-sm uppercase tracking-wider">Superfast 10-Min Delivery</h4>
+            <p className="text-xs text-gray-400 mt-1">Sourced from your local dark store and dispatched immediately for peak freshness.</p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-400 shrink-0">
-              <ShieldCheck className="w-6 h-6" />
+          <div className="flex flex-col items-center p-4 border-y md:border-y-0 md:border-x border-gray-800">
+            <div className="bg-brand-green-light/10 p-3 rounded-full mb-3">
+              <RefreshCw className="w-8 h-8 text-brand-green" />
             </div>
-            <div>
-              <h4 className="text-white text-sm font-bold">100% Quality Assurance</h4>
-              <p className="text-xs text-neutral-500 mt-1">Sourced from top brands & premium local farms</p>
-            </div>
+            <h4 className="text-white font-bold text-sm uppercase tracking-wider">No Questions Asked Returns</h4>
+            <p className="text-xs text-gray-400 mt-1">Not satisfied with the quality? Return at delivery time for full, instant cash refunds.</p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-400 shrink-0">
-              <CornerDownLeft className="w-6 h-6" />
+          <div className="flex flex-col items-center p-4">
+            <div className="bg-brand-green-light/10 p-3 rounded-full mb-3">
+              <ShieldCheck className="w-8 h-8 text-brand-green" />
             </div>
-            <div>
-              <h4 className="text-white text-sm font-bold">7-Day Easy Returns</h4>
-              <p className="text-xs text-neutral-500 mt-1">No questions asked refund or instant exchange</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-400 shrink-0">
-              <CreditCard className="w-6 h-6" />
-            </div>
-            <div>
-              <h4 className="text-white text-sm font-bold">Secure UPI & COD Ready</h4>
-              <p className="text-xs text-neutral-500 mt-1">Pay safely on delivery or via dynamic UPI QR</p>
-            </div>
+            <h4 className="text-white font-bold text-sm uppercase tracking-wider">100% Quality Assurance</h4>
+            <p className="text-xs text-gray-400 mt-1">Double-checked at our sorting depots. Only the best-rated crops make the basket.</p>
           </div>
         </div>
       </div>
 
-      {/* Main Footer Links */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
-        
-        {/* Col 1: Store Intro */}
-        <div className="space-y-6">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setPage("Home")}>
-            <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center text-white font-bold shadow-md shadow-emerald-500/20">
-              <Sparkles className="w-4.5 h-4.5" />
+      {/* Main Directory Links & Newsletter */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 grid grid-cols-1 md:grid-cols-4 gap-8">
+        {/* Brand Information & Contacts */}
+        <div className="flex flex-col gap-4 text-left">
+          <div className="flex items-center gap-1">
+            <div className="yellow-gradient p-1.5 rounded-lg shadow-xs">
+              <Sparkles className="w-4 h-4 text-brand-green-dark" />
             </div>
-            <span className="text-lg font-bold text-white tracking-tight">Daily Needs</span>
+            <span className="font-display font-black text-xl tracking-tight text-white">DAILY <span className="text-brand-green">NEEDS</span></span>
           </div>
-          <p className="text-xs leading-relaxed text-neutral-500">
-            Daily Needs is Bhopal's trusted grocery and essentials hub, committed to bringing you fresh produce, standard pantry items, baby items, stationeries, and pet needs within 20 to 45 minutes. Quality is our standard.
+          <p className="text-xs text-gray-400 leading-relaxed">
+            Your premium commercial-quality neighborhood supermarket, delivering fresh fruits, organic vegetables, dairy, household goods, and bakery essentials within minutes.
           </p>
-          <div className="flex gap-3">
-            <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" className="p-2 bg-neutral-800 text-green-400 hover:text-white hover:bg-emerald-500 rounded-xl transition-all" title="WhatsApp Chat">
-              <MessageSquare className="w-4 h-4" />
-            </a>
-            <a href="tel:+919876543210" className="p-2 bg-neutral-800 text-emerald-400 hover:text-white hover:bg-emerald-500 rounded-xl transition-all" title="Phone Call">
-              <Phone className="w-4 h-4" />
-            </a>
+          <div className="space-y-2 pt-2 text-xs text-gray-400">
+            <p className="flex items-center gap-2"><Phone className="w-3.5 h-3.5 text-brand-green" /> 1800-300-4567 (toll-free)</p>
+            <p className="flex items-center gap-2"><Mail className="w-3.5 h-3.5 text-brand-green" /> support@dailyneeds.com</p>
+            <p className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-brand-green" /> Depot House, Level 4, Bandra West, Mumbai 400050</p>
           </div>
         </div>
 
-        {/* Col 2: Useful Links */}
-        <div>
-          <h4 className="text-white text-xs font-bold uppercase tracking-widest mb-6">Explore Daily Needs</h4>
-          <ul className="space-y-3 text-xs">
-            <li><button onClick={() => setPage("Home")} className="hover:text-emerald-400 transition-colors">Home Store</button></li>
-            <li><button onClick={() => setPage("Categories")} className="hover:text-emerald-400 transition-colors">Browse Categories</button></li>
-            <li><button onClick={() => setPage("Wishlist")} className="hover:text-emerald-400 transition-colors">My Wishlist</button></li>
-            <li><button onClick={() => setPage("FAQ")} className="hover:text-emerald-400 transition-colors">Frequently Asked Questions (FAQ)</button></li>
-            <li><button onClick={() => setPage("About")} className="hover:text-emerald-400 transition-colors">About Store</button></li>
-            <li><button onClick={() => setPage("Contact")} className="hover:text-emerald-400 transition-colors">Contact Support</button></li>
+        {/* Categories Directory */}
+        <div className="text-left">
+          <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-4 border-l-2 border-brand-green pl-2">Top Categories</h4>
+          <ul className="space-y-2 text-xs text-gray-400 font-medium">
+            <li><a href="#" className="hover:text-brand-green transition-colors">Fresh Fruits & Vegetables</a></li>
+            <li><a href="#" className="hover:text-brand-green transition-colors">Milk, Butter & Paneer</a></li>
+            <li><a href="#" className="hover:text-brand-green transition-colors">Tea, Coffee & Instant Beverages</a></li>
+            <li><a href="#" className="hover:text-brand-green transition-colors">Rice, Wheat Atta & Pulses</a></li>
+            <li><a href="#" className="hover:text-brand-green transition-colors">Crispy Snacks, Namkeen & Biscuits</a></li>
           </ul>
         </div>
 
-        {/* Col 3: Legal & Corporate policies */}
-        <div>
-          <h4 className="text-white text-xs font-bold uppercase tracking-widest mb-6">Our Policies</h4>
-          <ul className="space-y-3 text-xs">
-            <li><button onClick={() => setPage("Privacy")} className="hover:text-emerald-400 transition-colors">Privacy Policy</button></li>
-            <li><button onClick={() => setPage("Refund")} className="hover:text-emerald-400 transition-colors">Refund & Return Policy</button></li>
-            <li><button onClick={() => setPage("Terms")} className="hover:text-emerald-400 transition-colors">Terms & Conditions</button></li>
-            <li><button onClick={() => setPage("FAQ")} className="hover:text-emerald-400 transition-colors">Shipping & Delivery Policies</button></li>
+        {/* Quick Links Directory */}
+        <div className="text-left">
+          <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-4 border-l-2 border-brand-green pl-2">Customer Service</h4>
+          <ul className="space-y-2 text-xs text-gray-400 font-medium">
+            <li><a href="#" className="hover:text-brand-green transition-colors">Track Your Order</a></li>
+            <li><a href="#" className="hover:text-brand-green transition-colors">Return Policy & Process</a></li>
+            <li><a href="#" className="hover:text-brand-green transition-colors">FAQs & Support Helpdesk</a></li>
+            <li><a href="#" className="hover:text-brand-green transition-colors">Contact Our Depot Manager</a></li>
+            <li><a href="#" className="hover:text-brand-green transition-colors">Pincode Eligibility list</a></li>
           </ul>
         </div>
 
-        {/* Col 4: Address & Timing details */}
-        <div className="space-y-4 text-xs text-neutral-500">
-          <h4 className="text-white text-xs font-bold uppercase tracking-widest mb-6">Store Details</h4>
-          <div className="flex items-start gap-2.5">
-            <MapPin className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-            <span>
-              <strong>Daily Needs Store</strong><br />
-              123 Main Market, Bhopal,<br />
-              Madhya Pradesh, India
+        {/* Newsletter subscription */}
+        <div className="text-left flex flex-col gap-4">
+          <h4 className="text-white font-bold text-xs uppercase tracking-wider border-l-2 border-brand-green pl-2">Weekly Restocking Coupons</h4>
+          <p className="text-xs text-gray-400 leading-relaxed">
+            Subscribe to receive exclusive deals, flash sale announcements, and flat 15% discount coupon codes!
+          </p>
+          <form onSubmit={handleSubscribe} className="flex bg-gray-800 rounded-xl p-1 shadow-inner">
+            <input
+              type="email"
+              placeholder="your.email@gmail.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="bg-transparent w-full px-3 py-2 text-xs focus:outline-hidden text-white font-medium placeholder-gray-500"
+              required
+            />
+            <button type="submit" className="bg-brand-green hover:bg-brand-green-dark p-2 rounded-lg text-white transition-colors cursor-pointer">
+              <Send className="w-3.5 h-3.5" />
+            </button>
+          </form>
+          {isSubscribed && (
+            <span className="text-xs text-brand-green flex items-center gap-1.5 font-semibold animate-pulse">
+              <CheckCircle className="w-4 h-4" /> Subscription confirmed! Check your inbox.
             </span>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <Clock className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>Store Timings: <strong>7:00 AM – 10:00 PM</strong></span>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>Support: +91 9876543210</span>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <Mail className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>Email: support@dailyneeds.in</span>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Ground Copyright and Trademark details */}
-      <div className="border-t border-neutral-800 py-6 text-center text-xs text-neutral-600 bg-neutral-950/40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <span>&copy; {new Date().getFullYear()} Daily Needs Bhopal. Developed by राजेश शर्मा (Rajesh Sharma). All Rights Reserved.</span>
-          <div className="flex gap-4">
-            <button onClick={() => setPage("Privacy")} className="hover:underline">Privacy</button>
-            <button onClick={() => setPage("Terms")} className="hover:underline">Terms</button>
-            <button onClick={() => setPage("Refund")} className="hover:underline">Refunds</button>
-          </div>
+          )}
         </div>
       </div>
 
+      {/* Under copyright, licenses, security seals */}
+      <div className="bg-[#0f0f0f] py-6 px-4 sm:px-6 lg:px-8 border-t border-gray-900 text-center text-xs text-gray-500 font-medium">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <p>© 2026 Daily Needs Retail Pvt. Ltd. All rights reserved.</p>
+          <div className="flex flex-wrap justify-center gap-4 text-3xs font-bold uppercase tracking-widest">
+            <span className="hover:underline cursor-pointer">Security Certifications</span>
+            <span>|</span>
+            <span className="hover:underline cursor-pointer">Terms & Conditions</span>
+            <span>|</span>
+            <span className="hover:underline cursor-pointer">FSSAI Licence No: 10022022000450</span>
+          </div>
+        </div>
+      </div>
     </footer>
   );
-};
+}

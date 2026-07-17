@@ -1,6 +1,6 @@
 {
   "name": "Daily Needs",
-  "description": "Daily Needs is a premium grocery e-commerce store with an AI Shopping Assistant, fully-functional shopping cart, checkout system, real-time-like order tracking, and an analytical Admin Dashboard.",
+  "description": "Premium commercial-quality grocery e-commerce platform offering ultra-fast delivery, curated catalog of 300+ items, smart AI Shopping Assistant, responsive comparisons, wishlist, cart, and intuitive admin analytics.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

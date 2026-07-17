@@ -1,586 +1,519 @@
-import React, { useState } from "react";
-import { useStore } from "../context/StoreContext";
-import { ALL_PRODUCTS, ACTIVE_COUPONS } from "../data/products";
-import { 
-  BarChart3, LayoutDashboard, ShoppingBag, FolderHeart, 
-  ShoppingBasket, Users, AlertTriangle, Ticket, Bell, Settings,
-  TrendingUp, Plus, Search, Edit2, Check, RefreshCw, Trash, Send
-} from "lucide-react";
-import { Product, Coupon, Order } from "../types";
+import React, { useState, useEffect } from 'react';
+import { LayoutDashboard, ShoppingCart, Package, Users, Tag, TrendingUp, AlertCircle, CheckCircle, Search, Edit2, Plus, Trash2, ArrowRight } from 'lucide-react';
+import { Product, Order, Coupon } from '../types';
+import { PRODUCTS, COUPONS } from '../data/products';
 
-export const AdminDashboard: React.FC = () => {
-  const { 
-    products, orders, updateOrderStatus,
-    appliedCoupon, addNotification
-  } = useStore();
+interface AdminDashboardProps {
+  products: Product[];
+  orders: Order[];
+  onUpdateProducts: (updated: Product[]) => void;
+  onUpdateOrders: (updated: Order[]) => void;
+  isOpen: boolean;
+  onClose: () => void;
+}
 
-  const [activeTab, setActiveTab] = useState<string>("dashboard");
-  const [productSearch, setProductSearch] = useState<string>("");
-  const [editingStockProductId, setEditingStockProductId] = useState<string | null>(null);
-  const [tempStockValue, setTempStockValue] = useState<number>(0);
+export default function AdminDashboard({
+  products,
+  orders,
+  onUpdateProducts,
+  onUpdateOrders,
+  isOpen,
+  onClose
+}: AdminDashboardProps) {
+  const [activeTab, setActiveTab] = useState<'stats' | 'orders' | 'products' | 'coupons'>('stats');
+  const [productSearch, setProductSearch] = useState('');
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editedStock, setEditedStock] = useState(0);
+  const [editedPrice, setEditedPrice] = useState(0);
 
-  // Local Coupons State for simulation
-  const [coupons, setCoupons] = useState<Coupon[]>(ACTIVE_COUPONS);
-  const [newCouponCode, setNewCouponCode] = useState("");
-  const [newCouponVal, setNewCouponVal] = useState(10);
-  const [newCouponMin, setNewCouponMin] = useState(1000);
-  const [newCouponDesc, setNewCouponDesc] = useState("");
+  // New Coupon Form States
+  const [couponCode, setCouponCode] = useState('');
+  const [couponVal, setCouponVal] = useState(10);
+  const [couponMinVal, setCouponMinVal] = useState(200);
+  const [couponType, setCouponType] = useState<'percentage' | 'fixed'>('percentage');
+  const [localCoupons, setLocalCoupons] = useState<Coupon[]>(COUPONS);
 
-  // Broadcast Notification message
-  const [broadcastMessage, setBroadcastMessage] = useState("");
+  if (!isOpen) return null;
 
-  // Calculate metrics
-  const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
-  const totalOrdersCount = orders.length;
-  const outOfStockProducts = products.filter((p) => p.stock === 0 || p.stock < 15);
-  const mockCustomersCount = 124;
+  // Stats calculations
+  const totalSales = orders.reduce((acc, o) => acc + o.total, 0);
+  const totalOrders = orders.length;
+  const lowStockCount = products.filter(p => p.stock <= 8).length;
+  const activeCouponsCount = localCoupons.length;
 
-  const handleUpdateStock = (productId: string) => {
-    const p = products.find((prod) => prod.id === productId);
-    if (p) {
-      p.stock = tempStockValue;
-      setEditingStockProductId(null);
-      addNotification(`Updated stock of ${p.name} to ${tempStockValue}!`, "success");
-    }
+  // Filter products for admin editor
+  const filteredProducts = products.filter(p =>
+    p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+    p.brand.toLowerCase().includes(productSearch.toLowerCase()) ||
+    p.category.toLowerCase().includes(productSearch.toLowerCase())
+  ).slice(0, 50); // page cap
+
+  // Update order status programmatically
+  const handleUpdateOrderStatus = (orderId: string, nextStatus: Order['status']) => {
+    const updated = orders.map(o => {
+      if (o.id === orderId) {
+        return { ...o, status: nextStatus };
+      }
+      return o;
+    });
+    onUpdateOrders(updated);
   };
 
+  // Save edited product stock / price
+  const handleSaveProductEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+
+    const updated = products.map(p => {
+      if (p.id === editingProduct.id) {
+        return { ...p, stock: editedStock, sellingPrice: editedPrice, discount: Math.round(((p.mrp - editedPrice) / p.mrp) * 100) };
+      }
+      return p;
+    });
+
+    onUpdateProducts(updated);
+    setEditingProduct(null);
+  };
+
+  // Create new coupon
   const handleAddCoupon = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCouponCode) return;
-    const newC: Coupon = {
-      code: newCouponCode.toUpperCase(),
-      discountType: "percentage",
-      value: newCouponVal,
-      minOrderValue: newCouponMin,
-      description: newCouponDesc || `${newCouponVal}% OFF on orders above ₹${newCouponMin}`
+    if (!couponCode.trim()) return;
+
+    const newCoupon: Coupon = {
+      code: couponCode.trim().toUpperCase(),
+      discountType: couponType,
+      value: couponVal,
+      minOrderValue: couponMinVal,
+      description: `Get ${couponType === 'percentage' ? couponVal + '%' : '₹' + couponVal} OFF on orders above ₹${couponMinVal}`
     };
-    setCoupons([newC, ...coupons]);
-    setNewCouponCode("");
-    setNewCouponDesc("");
-    addNotification(`Coupon ${newC.code} added to shop!`, "success");
+
+    setLocalCoupons([...localCoupons, newCoupon]);
+    setCouponCode('');
   };
 
+  // Delete coupon
   const handleDeleteCoupon = (code: string) => {
-    setCoupons(coupons.filter((c) => c.code !== code));
-    addNotification("Coupon code deactivated.", "info");
-  };
-
-  const handleSendBroadcast = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!broadcastMessage) return;
-    addNotification(`Broadcast: "${broadcastMessage}" sent to all users!`, "success");
-    setBroadcastMessage("");
+    setLocalCoupons(localCoupons.filter(c => c.code !== code));
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 transition-all min-h-[600px] bg-neutral-50/30 dark:bg-neutral-900/10 rounded-3xl border border-neutral-100 dark:border-neutral-800">
-      
-      {/* Admin Title Banner */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-neutral-100 dark:border-neutral-800 mb-8">
-        <div>
-          <span className="text-xs font-extrabold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 font-mono">Control Center</span>
-          <h1 className="text-2xl font-black text-neutral-800 dark:text-neutral-100 mt-1">Admin Dashboard</h1>
-          <p className="text-xs text-neutral-400 mt-1">Manage Daily Needs inventory, track orders, configure coupons, and view analytics for Rajesh Sharma.</p>
-        </div>
-        <div className="flex items-center gap-2 bg-white dark:bg-neutral-800 p-3 rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm">
-          <div className="w-8 h-8 rounded-full bg-emerald-500 text-white font-black flex items-center justify-center text-xs shadow-inner">RS</div>
-          <div>
-            <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">Rajesh Sharma</p>
-            <p className="text-[10px] text-neutral-400 font-mono">Daily Needs Bhopal Owner</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Grid Layout: Sidebar Navigation & Content Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-3xl w-full max-w-6xl shadow-2xl relative flex flex-col h-[90vh] overflow-hidden animate-fade-in" id="admin-dashboard">
         
-        {/* Sidebar Nav */}
-        <div className="lg:col-span-1 space-y-1">
+        {/* Admin Header Section */}
+        <div className="bg-brand-dark p-5 text-white flex flex-col sm:flex-row items-center justify-between gap-4 sticky top-0 z-20">
+          <div className="flex items-center gap-2.5 text-left">
+            <div className="yellow-gradient p-2 rounded-xl text-brand-dark shadow-xs">
+              <LayoutDashboard className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="font-display font-black text-xl tracking-tight">Daily Needs Manager Control</h2>
+              <p className="text-3xs text-gray-400 font-bold uppercase tracking-widest">Depot Analytics & Real-Time Logistics Panel</p>
+            </div>
+          </div>
           <button
-            onClick={() => setActiveTab("dashboard")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === "dashboard" ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/10" : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300"}`}
+            onClick={onClose}
+            className="bg-gray-800 hover:bg-gray-700 text-white font-black text-xs px-4 py-2 rounded-xl transition-all cursor-pointer border border-gray-700"
           >
-            <LayoutDashboard className="w-4.5 h-4.5" />
-            <span>Overview Dashboard</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("products")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === "products" ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/10" : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300"}`}
-          >
-            <ShoppingBasket className="w-4.5 h-4.5" />
-            <span>Products Inventory</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("orders")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === "orders" ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/10" : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300"}`}
-          >
-            <ShoppingBag className="w-4.5 h-4.5" />
-            <span>Customer Orders</span>
-            {orders.filter((o) => o.orderStatus === "Placed").length > 0 && (
-              <span className="ml-auto w-5 h-5 bg-yellow-400 text-neutral-900 text-[10px] font-black rounded-full flex items-center justify-center">
-                {orders.filter((o) => o.orderStatus === "Placed").length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab("coupons")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === "coupons" ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/10" : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300"}`}
-          >
-            <Ticket className="w-4.5 h-4.5" />
-            <span>Coupon Engine</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("analytics")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === "analytics" ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/10" : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300"}`}
-          >
-            <BarChart3 className="w-4.5 h-4.5" />
-            <span>Bhopal Sales Analytics</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("notifications")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === "notifications" ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/10" : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300"}`}
-          >
-            <Bell className="w-4.5 h-4.5" />
-            <span>Broadcast Alerts</span>
+            EXIT PANEL
           </button>
         </div>
 
-        {/* Dynamic Content Window */}
-        <div className="lg:col-span-3">
+        {/* Dashboard Grid Layout */}
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+          
+          {/* Left: Sidebar Navigation */}
+          <div className="bg-gray-50 border-r border-gray-150 p-4 w-full md:w-56 flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible">
+            <button
+              onClick={() => setActiveTab('stats')}
+              className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'stats' ? 'bg-brand-green text-white shadow-md' : 'text-gray-600 hover:bg-gray-200/50'
+              }`}
+            >
+              <TrendingUp className="w-4 h-4" /> Depot Statistics
+            </button>
+            <button
+              onClick={() => setActiveTab('orders')}
+              className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'orders' ? 'bg-brand-green text-white shadow-md' : 'text-gray-600 hover:bg-gray-200/50'
+              }`}
+            >
+              <ShoppingCart className="w-4 h-4" /> Live Orders ({orders.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('products')}
+              className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'products' ? 'bg-brand-green text-white shadow-md' : 'text-gray-600 hover:bg-gray-200/50'
+              }`}
+            >
+              <Package className="w-4 h-4" /> Inventory Editor
+            </button>
+            <button
+              onClick={() => setActiveTab('coupons')}
+              className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'coupons' ? 'bg-brand-green text-white shadow-md' : 'text-gray-600 hover:bg-gray-200/50'
+              }`}
+            >
+              <Tag className="w-4 h-4" /> Coupons Manager
+            </button>
+          </div>
 
-          {/* TAB 1: OVERVIEW */}
-          {activeTab === "dashboard" && (
-            <div className="space-y-8 animate-in fade-in duration-250">
-              
-              {/* Stat Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white dark:bg-neutral-800 p-5 rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm">
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Total Sales Revenue</span>
-                  <p className="text-2xl font-black text-neutral-800 dark:text-white mt-1">₹{totalRevenue.toLocaleString("en-IN")}</p>
-                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5 mt-2">
-                    <TrendingUp className="w-3.5 h-3.5" /> +14.5% Since yesterday
-                  </span>
+          {/* Right: Main dynamic view Panel */}
+          <div className="flex-1 p-6 overflow-y-auto text-left">
+            
+            {/* View Tab 1: Depot Stats */}
+            {activeTab === 'stats' && (
+              <div className="space-y-6">
+                <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-4">Depot Metrics Overview</h3>
+                
+                {/* Visual Cards Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                  <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center justify-between shadow-xs">
+                    <div>
+                      <p className="text-3xs text-emerald-600 font-bold uppercase tracking-wider">Depot Gross Revenue</p>
+                      <h4 className="text-2xl font-black text-emerald-800 mt-1">₹{totalSales}</h4>
+                    </div>
+                    <div className="bg-emerald-100 p-2.5 rounded-xl text-emerald-600"><TrendingUp className="w-5 h-5" /></div>
+                  </div>
+
+                  <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl flex items-center justify-between shadow-xs">
+                    <div>
+                      <p className="text-3xs text-indigo-600 font-bold uppercase tracking-wider">Total Dispatch Orders</p>
+                      <h4 className="text-2xl font-black text-indigo-800 mt-1">{totalOrders}</h4>
+                    </div>
+                    <div className="bg-indigo-100 p-2.5 rounded-xl text-indigo-600"><ShoppingCart className="w-5 h-5" /></div>
+                  </div>
+
+                  <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center justify-between shadow-xs">
+                    <div>
+                      <p className="text-3xs text-red-600 font-bold uppercase tracking-wider">Low Stock Shortages</p>
+                      <h4 className="text-2xl font-black text-red-800 mt-1">{lowStockCount}</h4>
+                    </div>
+                    <div className="bg-red-100 p-2.5 rounded-xl text-red-600"><AlertCircle className="w-5 h-5 animate-pulse" /></div>
+                  </div>
+
+                  <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-center justify-between shadow-xs">
+                    <div>
+                      <p className="text-3xs text-amber-600 font-bold uppercase tracking-wider">Active Promo Coupons</p>
+                      <h4 className="text-2xl font-black text-amber-800 mt-1">{activeCouponsCount}</h4>
+                    </div>
+                    <div className="bg-amber-100 p-2.5 rounded-xl text-amber-600"><Tag className="w-5 h-5" /></div>
+                  </div>
                 </div>
-                <div className="bg-white dark:bg-neutral-800 p-5 rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm">
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Total Orders</span>
-                  <p className="text-2xl font-black text-neutral-800 dark:text-white mt-1">{totalOrdersCount}</p>
-                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-2 block">
-                    100% Fulfilled or Active
-                  </span>
-                </div>
-                <div className="bg-white dark:bg-neutral-800 p-5 rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm">
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Low Stock Warnings</span>
-                  <p className="text-2xl font-black text-rose-500 mt-1">{outOfStockProducts.length}</p>
-                  <span className="text-[10px] text-neutral-400 font-medium flex items-center gap-1 mt-2">
-                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400" /> Stock below 15 units
-                  </span>
-                </div>
-                <div className="bg-white dark:bg-neutral-800 p-5 rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm">
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Registered Clients</span>
-                  <p className="text-2xl font-black text-neutral-800 dark:text-white mt-1">{mockCustomersCount}</p>
-                  <span className="text-[10px] text-neutral-400 font-medium mt-2 block">
-                    Bhopal delivery radius
-                  </span>
+
+                {/* Low Stock Warning List */}
+                <div className="space-y-3 pt-4">
+                  <div className="flex items-center gap-1.5 text-red-600">
+                    <AlertCircle className="w-4 h-4 fill-current text-red-100" />
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider">Critical Inventory Depletions (Stock &lt;= 8)</h4>
+                  </div>
+                  {lowStockCount === 0 ? (
+                    <p className="text-xs text-gray-400 font-semibold flex items-center gap-1"><CheckCircle className="w-4 h-4 text-brand-green" /> All depot inventory stocks are optimized!</p>
+                  ) : (
+                    <div className="bg-white rounded-2xl border border-red-100 overflow-hidden divide-y divide-gray-100">
+                      {products.filter(p => p.stock <= 8).slice(0, 10).map(p => (
+                        <div key={p.id} className="p-3 flex items-center justify-between text-xs hover:bg-red-50/20 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <img src={p.images[0]} alt={p.name} className="w-8 h-8 object-cover rounded-md border border-gray-100" referrerPolicy="no-referrer" />
+                            <div>
+                              <p className="font-bold text-gray-500 uppercase text-[9px]">{p.brand}</p>
+                              <p className="font-semibold text-brand-dark">{p.name} ({p.weight} {p.unit})</p>
+                            </div>
+                          </div>
+                          <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-md font-bold text-3xs uppercase tracking-wider">
+                            ONLY {p.stock} LEFT
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
+            )}
 
-              {/* Recent Orders Overview */}
-              <div className="bg-white dark:bg-neutral-800 rounded-3xl border border-neutral-100 dark:border-neutral-800 p-6">
-                <h3 className="text-base font-bold text-neutral-800 dark:text-neutral-100 mb-4">Incoming Shop Orders</h3>
+            {/* View Tab 2: Live Logistics Orders */}
+            {activeTab === 'orders' && (
+              <div className="space-y-4">
+                <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-4">Dispatcher Dispatch Tracking</h3>
+                
                 {orders.length === 0 ? (
-                  <div className="text-center py-8 text-neutral-400 text-xs">
-                    No orders have been received yet. Place a test order from the checkout!
-                  </div>
+                  <p className="text-xs text-gray-400 font-semibold py-8 text-center border-2 border-dashed border-gray-150 rounded-2xl select-none">No active sales recorded yet during this session</p>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="border-b border-neutral-100 dark:border-neutral-700 text-neutral-400 font-bold">
-                          <th className="py-3 px-2">Order ID</th>
-                          <th className="py-3 px-2">Customer</th>
-                          <th className="py-3 px-2">Items</th>
-                          <th className="py-3 px-2">Total Amount</th>
-                          <th className="py-3 px-2">Payment</th>
-                          <th className="py-3 px-2">Status</th>
-                          <th className="py-3 px-2 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-neutral-50 dark:divide-neutral-800 font-medium">
-                        {orders.map((o) => (
-                          <tr key={o.id}>
-                            <td className="py-3.5 px-2 font-mono font-bold text-neutral-800 dark:text-neutral-200">{o.id}</td>
-                            <td className="py-3.5 px-2">
-                              <div>
-                                <p className="font-bold text-neutral-800 dark:text-neutral-200">{o.customerDetails.name}</p>
-                                <p className="text-[10px] text-neutral-400">{o.customerDetails.phone}</p>
-                              </div>
-                            </td>
-                            <td className="py-3.5 px-2 text-neutral-500 dark:text-neutral-400">{o.items.length} items</td>
-                            <td className="py-3.5 px-2 font-bold text-neutral-800 dark:text-neutral-200">₹{o.total}</td>
-                            <td className="py-3.5 px-2">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${o.paymentStatus === "Paid" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400" : "bg-yellow-50 text-yellow-700"}`}>
-                                {o.paymentStatus} ({o.paymentMethod})
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-2">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${o.orderStatus === "Delivered" ? "bg-emerald-50 text-emerald-700" : o.orderStatus === "Out for Delivery" ? "bg-purple-50 text-purple-700" : "bg-blue-50 text-blue-700"}`}>
-                                {o.orderStatus}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-2 text-right">
-                              <select
-                                value={o.orderStatus}
-                                onChange={(e) => {
-                                  updateOrderStatus(o.id, e.target.value as any);
-                                  addNotification(`Order status updated to ${e.target.value}`, "info");
-                                }}
-                                className="bg-neutral-50 dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 rounded-lg p-1 text-[11px] font-bold focus:outline-none"
+                  <div className="space-y-4">
+                    {orders.map((o) => (
+                      <div key={o.id} className="border border-gray-150 rounded-2xl p-4 bg-white shadow-xs space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
+                          <div>
+                            <span className="text-xs font-black text-brand-green uppercase">ID: {o.id}</span>
+                            <p className="text-3xs text-gray-400 font-bold uppercase tracking-wider">Placed at: {o.createdAt}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-2xs font-bold uppercase px-2 py-0.5 rounded-full ${
+                              o.status === 'delivered' ? 'bg-emerald-100 text-emerald-800' :
+                              o.status === 'out-for-delivery' ? 'bg-amber-100 text-amber-800' :
+                              'bg-indigo-100 text-indigo-800'
+                            }`}>
+                              {o.status}
+                            </span>
+
+                            {/* Status transitions control */}
+                            {o.status === 'ordered' && (
+                              <button
+                                onClick={() => handleUpdateOrderStatus(o.id, 'packed')}
+                                className="bg-brand-green hover:bg-brand-green-dark text-white font-bold text-3xs px-2.5 py-1 rounded-md flex items-center gap-1 cursor-pointer"
                               >
-                                <option value="Placed">Placed</option>
-                                <option value="Processed">Processed</option>
-                                <option value="Out for Delivery">Out for Delivery</option>
-                                <option value="Delivered">Delivered</option>
-                              </select>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                                Mark Packed <ArrowRight className="w-3 h-3" />
+                              </button>
+                            )}
+                            {o.status === 'packed' && (
+                              <button
+                                onClick={() => handleUpdateOrderStatus(o.id, 'out-for-delivery')}
+                                className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-3xs px-2.5 py-1 rounded-md flex items-center gap-1 cursor-pointer"
+                              >
+                                Dispatch <ArrowRight className="w-3 h-3" />
+                              </button>
+                            )}
+                            {o.status === 'out-for-delivery' && (
+                              <button
+                                onClick={() => handleUpdateOrderStatus(o.id, 'delivered')}
+                                className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-3xs px-2.5 py-1 rounded-md flex items-center gap-1 cursor-pointer"
+                              >
+                                Mark Delivered <ArrowRight className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Order info details */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                          <div>
+                            <span className="font-bold text-gray-400 uppercase tracking-wider block mb-1">Customer Logistics</span>
+                            <p className="font-black text-brand-dark">{o.customerDetails.name}</p>
+                            <p className="text-gray-500 font-semibold">{o.customerDetails.phone} | {o.customerDetails.address} (Pincode: {o.customerDetails.pincode})</p>
+                          </div>
+
+                          <div>
+                            <span className="font-bold text-gray-400 uppercase tracking-wider block mb-1">Summary Billing (To Pay: ₹{o.total})</span>
+                            <div className="space-y-1">
+                              {o.items.map((it, idx) => (
+                                <p key={idx} className="text-gray-600 font-semibold">{it.name} ({it.weight}) x {it.quantity} - ₹{it.price * it.quantity}</p>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* TAB 2: PRODUCTS STOCK */}
-          {activeTab === "products" && (
-            <div className="space-y-6 animate-in fade-in duration-250 bg-white dark:bg-neutral-800 p-6 rounded-3xl border border-neutral-100 dark:border-neutral-800">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                  <h3 className="text-base font-bold text-neutral-800 dark:text-neutral-100">Products Catalog & Stock Level</h3>
-                  <p className="text-xs text-neutral-400 mt-1">Total products listed: {products.length}. Type a name to filter.</p>
+            {/* View Tab 3: Inventory Stock Editor */}
+            {activeTab === 'products' && (
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                  <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest">Inventory Management</h3>
+                  
+                  {/* Local product search bar */}
+                  <div className="relative w-full sm:max-w-xs">
+                    <input
+                      type="text"
+                      placeholder="Search items for stock update..."
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                      className="w-full bg-gray-100 border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-brand-dark focus:outline-hidden focus:border-brand-green font-bold"
+                    />
+                    <Search className="w-3.5 h-3.5 text-gray-400 absolute right-3 top-2.5" />
+                  </div>
                 </div>
-                <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                  <input
-                    type="text"
-                    placeholder="Search brand, name, category..."
-                    value={productSearch}
-                    onChange={(e) => setProductSearch(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 bg-neutral-50 dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 rounded-xl text-xs placeholder-neutral-400 focus:outline-none text-neutral-800 dark:text-white"
-                  />
-                </div>
-              </div>
 
-              <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-neutral-100 dark:border-neutral-700 text-neutral-400 font-bold sticky top-0 bg-white dark:bg-neutral-800">
-                      <th className="py-3 px-2">Image</th>
-                      <th className="py-3 px-2">Product Name</th>
-                      <th className="py-3 px-2">Category</th>
-                      <th className="py-3 px-2">Price</th>
-                      <th className="py-3 px-2">Stock status</th>
-                      <th className="py-3 px-2 text-right">Edit Stock</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-50 dark:divide-neutral-800 font-medium">
-                    {products
-                      .filter((p) =>
-                        p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-                        p.brand.toLowerCase().includes(productSearch.toLowerCase()) ||
-                        p.category.toLowerCase().includes(productSearch.toLowerCase())
-                      )
-                      .slice(0, 30) // show last 30 for performance
-                      .map((p) => (
-                        <tr key={p.id}>
-                          <td className="py-3 px-2">
-                            <img src={p.images[0]} alt={p.name} className="w-9 h-9 object-cover rounded-lg border border-neutral-100 dark:border-neutral-700" referrerPolicy="no-referrer" />
-                          </td>
-                          <td className="py-3 px-2">
-                            <div>
-                              <p className="font-bold text-neutral-800 dark:text-neutral-200">{p.name}</p>
-                              <p className="text-[10px] text-neutral-400 font-mono">{p.sku} • {p.unit}</p>
-                            </div>
-                          </td>
-                          <td className="py-3 px-2 text-neutral-500">{p.category}</td>
-                          <td className="py-3 px-2 font-bold text-neutral-800 dark:text-white">₹{p.sellingPrice}</td>
-                          <td className="py-3 px-2">
-                            {p.stock === 0 ? (
-                              <span className="bg-rose-50 text-rose-700 px-2 py-0.5 rounded-full font-bold text-[10px]">Out of Stock</span>
-                            ) : p.stock < 15 ? (
-                              <span className="bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full font-bold text-[10px]">Low ({p.stock})</span>
-                            ) : (
-                              <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-bold text-[10px]">Good ({p.stock})</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-2 text-right">
-                            {editingStockProductId === p.id ? (
-                              <div className="flex items-center justify-end gap-1">
-                                <input
-                                  type="number"
-                                  value={tempStockValue}
-                                  onChange={(e) => setTempStockValue(Number(e.target.value))}
-                                  className="w-14 bg-neutral-50 border border-neutral-300 rounded p-1 text-[11px] font-bold focus:outline-none"
-                                />
-                                <button
-                                  onClick={() => handleUpdateStock(p.id)}
-                                  className="p-1.5 bg-emerald-500 text-white rounded hover:bg-emerald-600 transition-colors"
-                                >
-                                  <Check className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => {
-                                  setEditingStockProductId(p.id);
-                                  setTempStockValue(p.stock);
-                                }}
-                                className="p-1 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-lg text-neutral-600"
-                                title="Edit Stock"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: CUSTOMER ORDERS */}
-          {activeTab === "orders" && (
-            <div className="space-y-6 animate-in fade-in duration-250 bg-white dark:bg-neutral-800 p-6 rounded-3xl border border-neutral-100 dark:border-neutral-800">
-              <div className="border-b border-neutral-100 pb-4">
-                <h3 className="text-base font-bold text-neutral-800 dark:text-neutral-100">Fulfillment Pipeline</h3>
-                <p className="text-xs text-neutral-400 mt-1">Real-time update order statuses here. Updates customer tracking window instantly.</p>
-              </div>
-
-              {orders.length === 0 ? (
-                <div className="text-center py-12 text-neutral-400 text-xs">
-                  No orders have been received yet. Go buy some items first!
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {orders.map((o) => (
-                    <div key={o.id} className="p-4 rounded-2xl border border-neutral-100 dark:border-neutral-700 flex flex-col sm:flex-row justify-between gap-4 text-xs font-medium bg-neutral-50/50 dark:bg-neutral-800/30">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-sm text-neutral-800 dark:text-white">{o.id}</span>
-                          <span className="text-[10px] text-neutral-400">{new Date(o.createdAt).toLocaleTimeString()}</span>
-                        </div>
-                        <p className="text-neutral-500">
-                          Customer: <strong className="text-neutral-800 dark:text-neutral-200">{o.customerDetails.name}</strong> • Phone: {o.customerDetails.phone}
-                        </p>
-                        <p className="text-neutral-500">
-                          Address: <span className="text-neutral-800 dark:text-neutral-200">{o.customerDetails.address}, Bhopal ({o.customerDetails.pincode})</span>
-                        </p>
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {o.items.map((item, i) => (
-                            <span key={i} className="bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 px-2.5 py-1 rounded-lg text-[10px] text-neutral-600 dark:text-neutral-300">
-                              {item.name} x {item.quantity}
-                            </span>
-                          ))}
+                {/* Grid Lists */}
+                <div className="bg-white border border-gray-150 rounded-2xl overflow-hidden divide-y divide-gray-150">
+                  {filteredProducts.map((p) => (
+                    <div key={p.id} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs hover:bg-gray-50/40">
+                      <div className="flex items-center gap-3 text-left">
+                        <img src={p.images[0]} alt={p.name} className="w-10 h-10 object-cover rounded-lg border border-gray-100" referrerPolicy="no-referrer" />
+                        <div>
+                          <p className="font-bold text-gray-400 uppercase text-[9px]">{p.brand}</p>
+                          <h4 className="font-bold text-brand-dark leading-snug">{p.name}</h4>
+                          <p className="text-3xs text-gray-500 font-semibold">{p.weight} {p.unit} | Barcode: {p.barcode}</p>
                         </div>
                       </div>
 
-                      <div className="flex flex-col sm:items-end justify-between gap-2 shrink-0">
+                      {/* Editing and stock display */}
+                      <div className="flex items-center gap-4">
                         <div className="text-right">
-                          <span className="text-sm font-black text-neutral-800 dark:text-white">₹{o.total}</span>
-                          <p className="text-[10px] text-neutral-400">Payment: {o.paymentMethod} • Status: {o.paymentStatus}</p>
+                          <p className="text-gray-400 font-bold uppercase text-[9px]">Depot Stock</p>
+                          <span className={`font-black ${p.stock <= 8 ? 'text-red-600 animate-pulse' : 'text-brand-dark'}`}>{p.stock} units</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Update State:</span>
-                          <select
-                            value={o.orderStatus}
-                            onChange={(e) => {
-                              updateOrderStatus(o.id, e.target.value as any);
-                              addNotification(`Order status updated to ${e.target.value}`, "success");
-                            }}
-                            className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-600 rounded-lg p-1.5 font-bold text-xs"
-                          >
-                            <option value="Placed">Placed</option>
-                            <option value="Processed">Processed</option>
-                            <option value="Out for Delivery">Out for Delivery</option>
-                            <option value="Delivered">Delivered</option>
-                          </select>
+                        <div className="text-right">
+                          <p className="text-gray-400 font-bold uppercase text-[9px]">Sale Price</p>
+                          <span className="font-black text-brand-green">₹{p.sellingPrice}</span>
                         </div>
+
+                        {/* Edit Action */}
+                        <button
+                          onClick={() => { setEditingProduct(p); setEditedStock(p.stock); setEditedPrice(p.sellingPrice); }}
+                          className="p-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-brand-green hover:text-white transition-all cursor-pointer"
+                          title="Quick Edit Stock"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
 
-          {/* TAB 4: COUPON ENGINE */}
-          {activeTab === "coupons" && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in duration-250">
-              {/* Left Column: Create Coupon */}
-              <div className="md:col-span-1 bg-white dark:bg-neutral-800 p-6 rounded-3xl border border-neutral-100 dark:border-neutral-800">
-                <h3 className="text-base font-bold text-neutral-800 dark:text-neutral-100 mb-4">Create Promo Code</h3>
-                <form onSubmit={handleAddCoupon} className="space-y-4 text-xs font-medium">
-                  <div>
-                    <label className="block text-neutral-400 font-bold mb-1.5">Coupon Code (Uppercase)</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. MONSOON30"
-                      value={newCouponCode}
-                      onChange={(e) => setNewCouponCode(e.target.value)}
-                      className="w-full bg-neutral-50 dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 rounded-xl px-3 py-2.5 font-bold uppercase focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-neutral-400 font-bold mb-1.5">Discount Percentage (%)</label>
-                    <input
-                      type="number"
-                      value={newCouponVal}
-                      onChange={(e) => setNewCouponVal(Number(e.target.value))}
-                      className="w-full bg-neutral-50 dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 rounded-xl px-3 py-2.5 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-neutral-400 font-bold mb-1.5">Min Order Requirement (₹)</label>
-                    <input
-                      type="number"
-                      value={newCouponMin}
-                      onChange={(e) => setNewCouponMin(Number(e.target.value))}
-                      className="w-full bg-neutral-50 dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 rounded-xl px-3 py-2.5 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-neutral-400 font-bold mb-1.5">Description</label>
-                    <input
-                      type="text"
-                      placeholder="Special discount code"
-                      value={newCouponDesc}
-                      onChange={(e) => setNewCouponDesc(e.target.value)}
-                      className="w-full bg-neutral-50 dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 rounded-xl px-3 py-2.5 focus:outline-none"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-1.5"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Activate Coupon</span>
-                  </button>
-                </form>
-              </div>
-
-              {/* Right Column: List active Coupons */}
-              <div className="md:col-span-2 bg-white dark:bg-neutral-800 p-6 rounded-3xl border border-neutral-100 dark:border-neutral-800">
-                <h3 className="text-base font-bold text-neutral-800 dark:text-neutral-100 mb-4">Active Shop Coupons</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {coupons.map((c) => (
-                    <div key={c.code} className="p-4 rounded-2xl border border-neutral-100 dark:border-neutral-700 relative bg-neutral-50/50 dark:bg-neutral-800/30 text-xs font-medium flex flex-col justify-between">
-                      <div className="space-y-1">
-                        <span className="font-black text-sm text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 px-2.5 py-1 rounded-lg font-mono">
-                          {c.code}
-                        </span>
-                        <h4 className="text-xs font-bold text-neutral-800 dark:text-neutral-100 mt-3">{c.description}</h4>
-                        <p className="text-[10px] text-neutral-400">Min Order value: ₹{c.minOrderValue}</p>
+                {/* Floating Edit Panel Overlay */}
+                {editingProduct && (
+                  <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+                    <form onSubmit={handleSaveProductEdit} className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-xl text-left space-y-4">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-display font-black text-sm text-brand-dark uppercase tracking-wider">Modify Depot Stock</h4>
+                        <button type="button" onClick={() => setEditingProduct(null)} className="text-gray-400 hover:text-red-500 font-bold">X</button>
                       </div>
+
+                      <div className="text-xs">
+                        <span className="font-bold text-gray-400 uppercase tracking-wider block">{editingProduct.brand}</span>
+                        <p className="font-black text-brand-dark mt-0.5">{editingProduct.name}</p>
+                      </div>
+
+                      <div className="space-y-3.5 text-xs">
+                        <div>
+                          <label className="block font-bold text-gray-500 mb-1">Stock Level (Units)</label>
+                          <input
+                            type="number"
+                            required
+                            min={0}
+                            value={editedStock}
+                            onChange={(e) => setEditedStock(+e.target.value)}
+                            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-brand-dark font-black"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-gray-500 mb-1">Selling Price (₹)</label>
+                          <input
+                            type="number"
+                            required
+                            min={5}
+                            value={editedPrice}
+                            onChange={(e) => setEditedPrice(+e.target.value)}
+                            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-brand-dark font-black"
+                          />
+                        </div>
+                      </div>
+
                       <button
-                        onClick={() => handleDeleteCoupon(c.code)}
-                        className="absolute top-4 right-4 p-1.5 hover:bg-rose-50 text-rose-500 rounded-lg"
-                        title="Deactivate Coupon"
+                        type="submit"
+                        className="w-full bg-brand-green hover:bg-brand-green-dark text-white font-black py-2.5 rounded-xl transition-all cursor-pointer shadow-xs text-xs"
                       >
-                        <Trash className="w-3.5 h-3.5" />
+                        SAVE ADJUSTMENT
                       </button>
-                    </div>
-                  ))}
-                </div>
+                    </form>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* TAB 5: BHOPAL SALES ANALYTICS */}
-          {activeTab === "analytics" && (
-            <div className="space-y-6 animate-in fade-in duration-250 bg-white dark:bg-neutral-800 p-6 rounded-3xl border border-neutral-100 dark:border-neutral-800">
-              <div>
-                <h3 className="text-base font-bold text-neutral-800 dark:text-neutral-100">Bhopal Regional Sales Analytics</h3>
-                <p className="text-xs text-neutral-400 mt-1">Sales projections and category performance metrics for the 10 KM delivery radius.</p>
-              </div>
-
-              {/* Custom SVG Bar Chart */}
-              <div className="pt-4 space-y-4">
-                <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Revenue by Category (Top Selling)</p>
+            {/* View Tab 4: Promo Coupons Creator */}
+            {activeTab === 'coupons' && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
                 
-                <div className="space-y-3">
-                  {[
-                    { cat: "Rice & Pulses", val: "₹18,400", pct: 90 },
-                    { cat: "Oils & Ghee", val: "₹15,100", pct: 75 },
-                    { cat: "Beverages & Dairy", val: "₹12,400", pct: 60 },
-                    { cat: "Snacks & Chocolates", val: "₹9,800", pct: 48 },
-                    { cat: "Personal Care", val: "₹6,500", pct: 32 }
-                  ].map((row, idx) => (
-                    <div key={idx} className="space-y-1">
-                      <div className="flex justify-between text-xs font-semibold">
-                        <span className="text-neutral-700 dark:text-neutral-300">{row.cat}</span>
-                        <span className="text-neutral-900 dark:text-white font-extrabold">{row.val}</span>
+                {/* Coupon Form Creator */}
+                <div className="bg-gray-50 border border-gray-150 p-5 rounded-3xl space-y-4 text-xs">
+                  <h4 className="font-display font-black text-brand-dark uppercase tracking-wider flex items-center gap-1"><Plus className="w-4 h-4 text-brand-green" /> Create Promo Coupon</h4>
+                  <form onSubmit={handleAddCoupon} className="space-y-3.5">
+                    <div>
+                      <label className="block font-bold text-gray-500 mb-1">Coupon Code</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. MEGAWEEKEND"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value)}
+                        className="w-full border border-gray-200 bg-white rounded-xl px-3 py-2 text-brand-dark font-black uppercase"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-bold text-gray-500 mb-1">Discount Type</label>
+                        <select
+                          value={couponType}
+                          onChange={(e) => setCouponType(e.target.value as any)}
+                          className="w-full border border-gray-200 bg-white rounded-xl px-2 py-2 text-brand-dark font-semibold focus:outline-hidden"
+                        >
+                          <option value="percentage">Percent (%)</option>
+                          <option value="fixed">Fixed Flat (₹)</option>
+                        </select>
                       </div>
-                      <div className="w-full h-3 bg-neutral-100 dark:bg-neutral-700 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
-                          style={{ width: `${row.pct}%` }}
+                      <div>
+                        <label className="block font-bold text-gray-500 mb-1">Value</label>
+                        <input
+                          type="number"
+                          required
+                          min={1}
+                          value={couponVal}
+                          onChange={(e) => setCouponVal(+e.target.value)}
+                          className="w-full border border-gray-200 bg-white rounded-xl px-3 py-2 text-brand-dark font-black"
                         />
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
 
-              {/* Delivery Speed statistics */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8 pt-4 border-t border-neutral-50 dark:border-neutral-700/50 text-xs font-medium">
-                <div className="p-4 rounded-2xl bg-neutral-50/50 dark:bg-neutral-800/30">
-                  <p className="text-neutral-400">Average Delivery Time</p>
-                  <p className="text-xl font-extrabold text-emerald-600 mt-1">26.4 Minutes</p>
-                  <p className="text-[10px] text-neutral-400 mt-1">Within 10 KM limit</p>
-                </div>
-                <div className="p-4 rounded-2xl bg-neutral-50/50 dark:bg-neutral-800/30">
-                  <p className="text-neutral-400">Customer Satisfaction Score</p>
-                  <p className="text-xl font-extrabold text-emerald-600 mt-1">4.8 / 5.0 Stars</p>
-                  <p className="text-[10px] text-neutral-400 mt-1">Based on 1,200 reviews</p>
-                </div>
-              </div>
-            </div>
-          )}
+                    <div>
+                      <label className="block font-bold text-gray-500 mb-1">Min. Order Limit (₹)</label>
+                      <input
+                        type="number"
+                        required
+                        min={100}
+                        value={couponMinVal}
+                        onChange={(e) => setCouponMinVal(+e.target.value)}
+                        className="w-full border border-gray-200 bg-white rounded-xl px-3 py-2 text-brand-dark font-black"
+                      />
+                    </div>
 
-          {/* TAB 6: BROADCAST SYSTEM */}
-          {activeTab === "notifications" && (
-            <div className="space-y-6 animate-in fade-in duration-250 bg-white dark:bg-neutral-800 p-6 rounded-3xl border border-neutral-100 dark:border-neutral-800">
-              <div>
-                <h3 className="text-base font-bold text-neutral-800 dark:text-neutral-100">Broadcast Shop Announcement</h3>
-                <p className="text-xs text-neutral-400 mt-1">Broadcast an announcement, discount code, or service advisory banner to all shoppers at Daily Needs.</p>
-              </div>
+                    <button
+                      type="submit"
+                      className="w-full bg-brand-green hover:bg-brand-green-dark text-white font-black py-2.5 rounded-xl transition-all cursor-pointer shadow-xs uppercase tracking-wide"
+                    >
+                      PUBLISH PROMO CODE
+                    </button>
+                  </form>
+                </div>
 
-              <form onSubmit={handleSendBroadcast} className="space-y-4">
-                <textarea
-                  placeholder="e.g., Daily Needs is open! Get fresh green peas at 20% discount today! Use coupon code: FRESHPEAS."
-                  rows={4}
-                  value={broadcastMessage}
-                  onChange={(e) => setBroadcastMessage(e.target.value)}
-                  className="w-full bg-neutral-50 dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 rounded-2xl p-4 text-xs font-medium focus:outline-none"
-                />
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-md flex items-center gap-1.5"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Broadcast Notice</span>
-                </button>
-              </form>
-            </div>
-          )}
+                {/* Coupon Directory list */}
+                <div className="md:col-span-2 space-y-3">
+                  <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Published Depot Coupons</h4>
+                  <div className="bg-white border border-gray-150 rounded-2xl divide-y divide-gray-150 overflow-hidden">
+                    {localCoupons.map((c) => (
+                      <div key={c.code} className="p-3.5 flex items-center justify-between text-xs hover:bg-gray-50/40">
+                        <div className="text-left space-y-0.5">
+                          <span className="font-black text-brand-green bg-brand-green-light px-2 py-0.5 rounded-md text-3xs uppercase tracking-wider">{c.code}</span>
+                          <p className="font-bold text-brand-dark mt-1">{c.description}</p>
+                          <p className="text-4xs text-gray-400 font-semibold uppercase">MINIMUM BASKET THRESHOLD: ₹{c.minOrderValue}</p>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteCoupon(c.code)}
+                          className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                          title="Delete Coupon"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+          </div>
 
         </div>
 
       </div>
-
     </div>
   );
-};
+}

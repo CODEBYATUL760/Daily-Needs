@@ -1,0 +1,6 @@
+# robots.txt for Daily Needs Grocery Online Supermarket
+User-agent: *
+Allow: /
+
+# Sitemap Location
+Sitemap: https://daily-needs-indol.vercel.app/sitemap.xml

@@ -1,30 +1,37 @@
-export interface Review {
-  id: string;
-  userName: string;
-  rating: number;
-  comment: string;
-  date: string;
-}
-
 export interface Product {
   id: string;
-  name: string;
   brand: string;
+  name: string;
   category: string;
   images: string[];
-  description: string;
-  unit: string;
-  stock: number;
-  sku: string;
+  weight: number;
+  unit: string; // 'g', 'kg', 'ml', 'L', 'pcs', 'packs'
   mrp: number;
   sellingPrice: number;
-  discount: number; // e.g. 15 for 15% off
+  discount: number; // percentage
+  sku: string;
+  barcode: string;
+  stock: number;
+  description: string;
+  ingredients?: string;
+  nutritionInfo?: {
+    calories?: string;
+    protein?: string;
+    carbs?: string;
+    fat?: string;
+    sodium?: string;
+    fiber?: string;
+  };
+  manufacturer: string;
+  countryOfOrigin: string;
+  storageInstructions: string;
+  shelfLife: string;
+  deliveryTime: string; // e.g. "10-15 mins", "2 hours", etc.
   rating: number;
-  reviews: Review[];
-  deliveryTime: string; // e.g. "20-45 mins"
-  bestseller: boolean;
-  trending: boolean;
+  reviewCount: number;
+  bestSeller: boolean;
   featured: boolean;
+  trending: boolean;
   returnPolicy: string;
 }
 
@@ -33,10 +40,15 @@ export interface CartItem {
   quantity: number;
 }
 
+export interface WishlistItem {
+  product: Product;
+  addedAt: string;
+}
+
 export interface Coupon {
   code: string;
-  discountType: "percentage" | "fixed";
-  value: number; // percentage or fixed amount
+  discountType: 'percentage' | 'fixed';
+  value: number;
   minOrderValue: number;
   description: string;
 }
@@ -46,20 +58,20 @@ export interface Order {
   items: {
     productId: string;
     name: string;
-    price: number;
+    brand: string;
     quantity: number;
-    unit: string;
+    price: number;
     image: string;
+    weight: string;
   }[];
   subtotal: number;
-  discount: number;
   deliveryCharge: number;
-  gst: number;
-  total: number;
+  discount: number;
   couponCode?: string;
-  paymentMethod: "UPI" | "COD";
-  paymentStatus: "Pending" | "Paid";
-  orderStatus: "Placed" | "Processed" | "Out for Delivery" | "Delivered";
+  total: number;
+  status: 'ordered' | 'packed' | 'out-for-delivery' | 'delivered';
+  createdAt: string;
+  estimatedDelivery: string;
   customerDetails: {
     name: string;
     email: string;
@@ -67,25 +79,21 @@ export interface Order {
     address: string;
     pincode: string;
   };
-  createdAt: string;
-  estimatedDelivery: string;
 }
 
-export interface UserProfile {
+export interface Review {
   id: string;
-  name: string;
-  email: string;
-  phone: string;
-  address: string;
-  pincode: string;
+  userName: string;
+  rating: number;
+  date: string;
+  comment: string;
+  verified: boolean;
 }
 
-export interface DashboardStats {
-  totalRevenue: number;
-  totalOrders: number;
-  totalCustomers: number;
-  totalProducts: number;
-  categorySales: { category: string; value: number }[];
-  recentOrders: Order[];
-  outOfStockCount: number;
+export interface ChatMessage {
+  id: string;
+  sender: 'user' | 'ai';
+  text: string;
+  timestamp: string;
+  suggestedProducts?: string[]; // list of product IDs
 }
