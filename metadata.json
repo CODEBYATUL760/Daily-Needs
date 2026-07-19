@@ -1,6 +1,6 @@
 {
   "name": "Daily Needs",
-  "description": "Premium commercial-quality grocery e-commerce platform offering ultra-fast delivery, curated catalog of 300+ items, smart AI Shopping Assistant, responsive comparisons, wishlist, cart, and intuitive admin analytics.",
+  "description": "Your Premium Local Grocery Shopping Experience with live delivery slots, realistic product catalog, and comprehensive cart operations.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
